@@ -1,1 +1,94 @@
-// will be updated soon.....
+import mediapipe as mp
+import cv2
+import subprocess as sb
+from pynput.keyboard import Key,Controller
+import time
+from PIL import Image
+
+
+keyboard = Controller()
+
+def view_img(idx):
+    global img_ptr 
+    filename = img_list[idx]
+    img = Image.open(filename)
+    print(img_ptr,"  ")
+    img.show()
+    time.sleep(5)
+    keyboard.press(Key.alt)
+    keyboard.press(Key.f4)
+    keyboard.release(Key.alt)
+    keyboard.release(Key.f4)
+    time.sleep(2)
+
+def right_swipe():
+    global img_ptr 
+    if img_ptr<len(img_list)-1:
+        print("right......")
+        img_ptr+=1
+        view_img(img_ptr)        
+
+def left_swipe():
+    global img_ptr 
+    if img_ptr>0:
+        print("left......")
+        img_ptr-=1
+        view_img(img_ptr)
+
+                ############################################################################################
+
+img_list = [r"C:\Users\TUF\OneDrive\Pictures\Camera Roll\img1.jpg" , r"C:\Users\TUF\OneDrive\Pictures\Camera Roll\img2.jfif", r"C:\Users\TUF\OneDrive\Pictures\Camera Roll\img3.jpeg" ,r"C:\Users\TUF\OneDrive\Pictures\Camera Roll\img4.jfif",r"C:\Users\TUF\OneDrive\Pictures\Camera Roll\img5.jfif"]
+global img_ptr
+img_ptr = -1
+
+hand_obj = mp.solutions.hands
+hand = hand_obj.Hands()
+draw = mp.solutions.drawing_utils
+
+cap = cv2.VideoCapture(0)
+
+prev_x,prev_y = 320,240
+distance = 0
+
+while True:
+    success,frame = cap.read()
+    frame_rgb = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+    output = hand.process(frame_rgb)
+    output = output.multi_hand_landmarks
+    cv2.putText(frame,"C",(320,240),cv2.FONT_ITALIC,1,(0,255,255),5)
+    cv2.putText(frame,"L",(200,240),cv2.FONT_ITALIC,1,(0,255,255),5)
+    cv2.putText(frame,"R",(440,240),cv2.FONT_ITALIC,1,(0,255,255),5)
+    if output:
+        for loc in output:
+            for id,l_mrk in enumerate(loc.landmark):
+                # draw_border = draw.draw_landmarks(frame,loc,hand_obj.HAND_CONNECTIONS)
+                height,width,c = frame.shape
+                if id==12:
+                    x , y = l_mrk.x , l_mrk.y
+                    x,y = int(x*width),int(y*height)
+                    cv2.circle(frame,(x,y),5,(255,0,0),cv2.FILLED)
+                    if x > prev_x and x>320:
+                        if x < 440:
+                            prev_x = x+10
+                            distance+=1
+                            # print("going right")
+                        if x>440 and distance>3:
+                            cv2.putText(frame,"Swipped right",(400,50),cv2.FONT_ITALIC,1,(0,255,255),5)
+                            right_swipe()
+                            distance,prev_x,prev_y=0,320,240
+                    
+                    if x < prev_x and x<320:
+                        if x > 200:
+                            prev_x = x-10
+                            distance+=1
+                            # print("going left")
+                        if x<200 and distance>3:
+                            cv2.putText(frame,"Swipped left",(180,50),cv2.FONT_ITALIC,1,(0,255,255),5)
+                            left_swipe()
+                            distance,prev_x,prev_y=0,320,240
+        else:
+            pass
+
+    cv2.imshow('Swipe Here',frame)
+    if cv2.waitKey(1)=='q':
+        break
